@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -288,6 +288,58 @@ st.markdown(
             margin-top: .2rem;
         }
 
+
+        .detail-block {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 14px;
+            padding: 14px 15px;
+            margin-bottom: .75rem;
+        }
+
+        .detail-block-title {
+            font-weight: 820;
+            color: #111827;
+            margin-bottom: .5rem;
+            font-size: .98rem;
+        }
+
+        .detail-grid-label {
+            color: #6B7280;
+            font-size: .75rem;
+            font-weight: 700;
+            margin-bottom: .1rem;
+        }
+
+        .detail-grid-value {
+            color: #111827;
+            font-size: .92rem;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .comment-card {
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 11px 12px;
+            margin-bottom: .55rem;
+        }
+
+        .comment-meta {
+            color: #6B7280;
+            font-size: .78rem;
+            font-weight: 650;
+            margin-bottom: .35rem;
+        }
+
+        .comment-body {
+            color: #111827;
+            font-size: .9rem;
+            line-height: 1.35;
+            white-space: pre-wrap;
+        }
+
         .footer-note {
             color: #6B7280;
             font-size: .85rem;
@@ -423,7 +475,7 @@ def display_df(df: pd.DataFrame, height: int = 460) -> None:
     st.dataframe(out, use_container_width=True, height=height, hide_index=True)
 
 
-@st.cache_data(ttl=180, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def load_tasks(
     api_token: str,
     team_id: str,
@@ -456,6 +508,52 @@ def get_client() -> ClickUpClient:
             assignee_ids=split_ids(get_secret("CLICKUP_ASSIGNEE_IDS")),
         )
     )
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_task_comments_cached(api_token: str, team_id: str, task_id: str, limit: int = 50) -> List[dict]:
+    client = ClickUpClient(ClickUpConfig(api_token=api_token, team_id=team_id))
+    try:
+        return client.get_task_comments(task_id, limit=limit)
+    except AttributeError:
+        return []
+
+
+def parse_clickup_ms(value) -> Optional[datetime]:
+    if value in (None, "", 0, "0"):
+        return None
+    try:
+        return datetime.fromtimestamp(int(value) / 1000)
+    except Exception:
+        return None
+
+
+def format_clickup_datetime(value) -> str:
+    dt = parse_clickup_ms(value)
+    if not dt:
+        return ""
+    # Use platform-neutral formatting.
+    return dt.strftime("%b %d, %Y at %I:%M %p").replace(" 0", " ")
+
+
+def get_comment_author(comment: dict) -> str:
+    user = comment.get("user") or {}
+    if isinstance(user, dict):
+        return clean_text(user.get("username") or user.get("email") or user.get("id") or "Unknown")
+    return "Unknown"
+
+
+def get_comment_text(comment: dict) -> str:
+    raw = comment.get("comment_text") or comment.get("comment") or ""
+    if isinstance(raw, list):
+        parts = []
+        for item in raw:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text") or item.get("plain_text") or item.get("value") or ""))
+            else:
+                parts.append(str(item))
+        return " ".join([p for p in parts if p]).strip()
+    return str(raw).strip()
 
 
 def load_folder_reference() -> pd.DataFrame:
@@ -753,8 +851,8 @@ def render_header() -> None:
     )
 
     render_info_banner(
-        "Inline task actions added",
-        "Open a task card, expand Quick actions, and update status, priority, due date, or add a comment without hunting for the task again.",
+        "Task details and inline activity added",
+        "Open a task drawer to see overview, description, comments, and quick updates without leaving the queue. Optional live sync uses Streamlit fragments so the whole app does not rerun.",
     )
 
 
@@ -1089,6 +1187,85 @@ def render_inline_task_actions(row: pd.Series, key_prefix: str = "inline_task_ac
             )
 
 
+def render_task_overview_block(row: pd.Series) -> None:
+    overview_items = [
+        ("Status", row.get("status") or "None"),
+        ("Priority", row.get("priority") or "None"),
+        ("Due", row.get("due") or "No due date"),
+        ("Client", row.get("folder") or "No Client / Folder"),
+        ("Folder ID", row.get("folder_id") or ""),
+        ("Task List", row.get("list") or ""),
+        ("Space", row.get("space") or ""),
+        ("Assignees", row.get("assignees") or ""),
+    ]
+
+    st.markdown('<div class="detail-block"><div class="detail-block-title">Overview</div>', unsafe_allow_html=True)
+    cols = st.columns(4)
+    for idx, (label, value) in enumerate(overview_items):
+        with cols[idx % 4]:
+            st.markdown(
+                f"""
+                <div class="detail-grid-label">{label}</div>
+                <div class="detail-grid-value">{value}</div>
+                """,
+                unsafe_allow_html=True,
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_description_block(row: pd.Series) -> None:
+    description = str(row.get("description") or "").strip()
+    st.markdown('<div class="detail-block"><div class="detail-block-title">Description</div>', unsafe_allow_html=True)
+    if description:
+        st.write(description)
+    else:
+        st.caption("No description on this task.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_comments_block(row: pd.Series, key_prefix: str) -> None:
+    task_id = str(row.get("id") or "")
+    key = f"{key_prefix}_{safe_key(task_id)}_comments"
+
+    st.markdown('<div class="detail-block"><div class="detail-block-title">Comments</div>', unsafe_allow_html=True)
+
+    show_comments = st.checkbox(
+        "Load comments for this task",
+        value=bool(st.session_state.get(key, False)),
+        key=key,
+        help="Comments are loaded on demand so the queue stays fast.",
+    )
+
+    if show_comments and task_id:
+        comments = load_task_comments_cached(
+            get_secret("CLICKUP_API_TOKEN"),
+            get_secret("CLICKUP_TEAM_ID"),
+            task_id,
+            limit=50,
+        )
+
+        if not comments:
+            st.caption("No comments found, or comments could not be loaded for this task.")
+        else:
+            for comment in comments:
+                author = get_comment_author(comment)
+                created = format_clickup_datetime(comment.get("date") or comment.get("date_created"))
+                body = get_comment_text(comment)
+                st.markdown(
+                    f"""
+                    <div class="comment-card">
+                        <div class="comment-meta">{author}{' · ' + created if created else ''}</div>
+                        <div class="comment-body">{body or 'No comment text'}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+    else:
+        st.caption("Check the box to load recent comments for this task.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_task_cards(df: pd.DataFrame, limit: int = 12, key_prefix: str = "task_cards"):
     if df.empty:
         st.info("No matching tasks.")
@@ -1143,13 +1320,16 @@ def render_task_cards(df: pd.DataFrame, limit: int = 12, key_prefix: str = "task
                 st.link_button("Open in ClickUp", task_url, use_container_width=True)
 
         with action_col2:
-            st.caption("Expand Quick actions to update status, priority, due date, or add a comment.")
+            st.caption("Open the task drawer below for overview, description, comments, and quick updates.")
 
-        render_inline_task_actions(row, key_prefix=key_prefix)
-
-        if row.get("description"):
-            with st.expander("Description preview"):
-                st.write(str(row.get("description"))[:1200])
+        drawer_label = f"Task drawer: {client} · {task_list} · {status_text}"
+        with st.expander(drawer_label, expanded=False):
+            render_task_overview_block(row)
+            render_description_block(row)
+            render_comments_block(row, key_prefix=key_prefix)
+            st.markdown('<div class="detail-block"><div class="detail-block-title">Quick Update</div>', unsafe_allow_html=True)
+            render_inline_task_actions(row, key_prefix=key_prefix)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1662,6 +1842,21 @@ with st.sidebar:
         help="Each ClickUp page can return up to 100 tasks.",
     )
 
+    st.markdown("### Live Sync")
+    auto_sync_enabled = st.checkbox(
+        "Auto-sync task data",
+        value=False,
+        help="Uses Streamlit fragments so only the task dashboard reruns, not the whole app.",
+    )
+
+    auto_sync_seconds = st.selectbox(
+        "Auto-sync interval",
+        options=[30, 60, 120, 300],
+        index=2,
+        disabled=not auto_sync_enabled,
+        format_func=lambda x: f"{int(x / 60)} min" if x >= 60 else f"{x} sec",
+    )
+
     refresh_clicked = st.button("Refresh ClickUp Data", use_container_width=True)
 
     st.markdown("---")
@@ -1673,24 +1868,17 @@ with st.sidebar:
 # =========================================================
 # Main app
 # =========================================================
-def main():
-    api_token = get_secret("CLICKUP_API_TOKEN")
-    team_id = get_secret("CLICKUP_TEAM_ID")
-    list_ids = get_secret("CLICKUP_LIST_IDS")
-    fallback_assignee_ids = get_secret("CLICKUP_ASSIGNEE_IDS")
-    clickup_users = get_clickup_users()
-    folder_ref = load_folder_reference()
-
-    if refresh_clicked:
-        st.cache_data.clear()
-        st.rerun()
-
-    render_header()
-
-    if not api_token or not team_id:
-        st.error("Add CLICKUP_API_TOKEN and CLICKUP_TEAM_ID in Streamlit Cloud Secrets.")
-        st.stop()
-
+def render_task_dashboard_body(
+    *,
+    api_token: str,
+    team_id: str,
+    list_ids: str,
+    fallback_assignee_ids: str,
+    clickup_users: Dict[str, str],
+    folder_ref: pd.DataFrame,
+    include_closed: bool,
+    page_limit: int,
+):
     user_state = render_user_panel(
         clickup_users=clickup_users,
         fallback_assignee_ids=fallback_assignee_ids,
@@ -1699,6 +1887,8 @@ def main():
 
     selected_user = user_state["selected_user"]
     selected_assignee_ids = user_state["selected_assignee_ids"]
+
+    st.caption(f"Data snapshot: {datetime.now().strftime('%b %d, %Y at %I:%M:%S %p').replace(' 0', ' ')}")
 
     with st.spinner(f"Loading tasks for {selected_user}..."):
         try:
@@ -1829,6 +2019,53 @@ def main():
             folder_ref=folder_ref,
             folder_options=filter_state["folder_options"],
             selected_user=selected_user,
+        )
+
+
+def main():
+    api_token = get_secret("CLICKUP_API_TOKEN")
+    team_id = get_secret("CLICKUP_TEAM_ID")
+    list_ids = get_secret("CLICKUP_LIST_IDS")
+    fallback_assignee_ids = get_secret("CLICKUP_ASSIGNEE_IDS")
+    clickup_users = get_clickup_users()
+    folder_ref = load_folder_reference()
+
+    if refresh_clicked:
+        st.cache_data.clear()
+        st.rerun()
+
+    render_header()
+
+    if not api_token or not team_id:
+        st.error("Add CLICKUP_API_TOKEN and CLICKUP_TEAM_ID in Streamlit Cloud Secrets.")
+        st.stop()
+
+    run_every = f"{auto_sync_seconds}s" if auto_sync_enabled else None
+
+    if hasattr(st, "fragment"):
+        dashboard_fragment = st.fragment(run_every=run_every)(render_task_dashboard_body)
+        dashboard_fragment(
+            api_token=api_token,
+            team_id=team_id,
+            list_ids=list_ids,
+            fallback_assignee_ids=fallback_assignee_ids,
+            clickup_users=clickup_users,
+            folder_ref=folder_ref,
+            include_closed=include_closed,
+            page_limit=int(page_limit),
+        )
+    else:
+        if auto_sync_enabled:
+            st.warning("Auto-sync needs a newer Streamlit version that supports st.fragment.")
+        render_task_dashboard_body(
+            api_token=api_token,
+            team_id=team_id,
+            list_ids=list_ids,
+            fallback_assignee_ids=fallback_assignee_ids,
+            clickup_users=clickup_users,
+            folder_ref=folder_ref,
+            include_closed=include_closed,
+            page_limit=int(page_limit),
         )
 
     render_divider()
