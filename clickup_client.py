@@ -110,11 +110,7 @@ class ClickUpClient:
         subtasks: bool = True,
         page_limit: int = 10,
     ) -> List[Dict[str, Any]]:
-        """Fetch tasks across a Workspace/Team.
-
-        ClickUp returns tasks by page. This method paginates until the API returns
-        fewer than 100 tasks or page_limit is reached.
-        """
+        """Fetch tasks across a Workspace/Team."""
         all_tasks: List[Dict[str, Any]] = []
 
         for page in range(page_limit):
@@ -146,6 +142,33 @@ class ClickUpClient:
                 break
 
         return all_tasks
+
+    def get_task(self, task_id: str) -> Dict[str, Any]:
+        if not task_id:
+            raise ValueError("A ClickUp task ID is required.")
+
+        return self._request(
+            "GET",
+            f"/task/{task_id}",
+            params={"include_markdown_description": "true"},
+        )
+
+    def get_task_comments(self, task_id: str, *, limit: int = 50) -> List[Dict[str, Any]]:
+        """Fetch recent comments for a task.
+
+        ClickUp returns task comments under the `comments` key. This method keeps
+        the response shape simple for the Streamlit app.
+        """
+        if not task_id:
+            return []
+
+        payload = self._request(
+            "GET",
+            f"/task/{task_id}/comment",
+            params={"limit": int(limit)},
+        )
+
+        return payload.get("comments", [])
 
     def update_task(
         self,
