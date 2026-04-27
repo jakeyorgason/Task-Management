@@ -17,9 +17,19 @@ from clickup_client import (
 from task_processing import filter_tasks, metric_counts, normalize_tasks
 
 
-st.set_page_config(page_title="ClickUp Command Center", page_icon="✅", layout="wide")
+# =========================================================
+# Page config
+# =========================================================
+st.set_page_config(
+    page_title="Evolved Commerce ClickUp Command Center",
+    page_icon="✅",
+    layout="wide",
+)
 
 
+# =========================================================
+# User display order
+# =========================================================
 USER_DISPLAY_ORDER = [
     "All Users",
     "Jake Yorgason",
@@ -52,15 +62,195 @@ USER_DISPLAY_ORDER = [
 ]
 
 
+# =========================================================
+# Styles
+# =========================================================
+st.markdown(
+    """
+    <style>
+        .main > div { padding-top: 1rem; }
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1.5rem;
+            max-width: 1460px;
+        }
+
+        [data-testid="stSidebar"] {
+            background: #F3F4F6;
+        }
+
+        .brand-shell {
+            background: linear-gradient(135deg, #EA580C 0%, #1F2937 100%);
+            border-radius: 22px;
+            padding: 52px 32px;
+            color: white;
+            margin-bottom: 1.1rem;
+            box-shadow: 0 12px 28px rgba(0,0,0,.12);
+        }
+
+        .brand-title {
+            font-size: 2.2rem;
+            font-weight: 850;
+            line-height: 1.05;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-subtitle {
+            font-size: 1rem;
+            opacity: .96;
+            margin-top: .7rem;
+            max-width: 900px;
+        }
+
+        .section-title {
+            font-size: 1.22rem;
+            font-weight: 780;
+            color: #111827;
+            margin-bottom: .18rem;
+        }
+
+        .section-note {
+            color: #4B5563;
+            font-size: .94rem;
+            margin-bottom: .9rem;
+        }
+
+        .section-divider {
+            border-top: 1px solid #E5E7EB;
+            margin: 1.1rem 0 1.2rem 0;
+        }
+
+        .metric-card {
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 16px;
+            padding: 14px 15px;
+            box-shadow: 0 4px 14px rgba(15,23,42,.05);
+            min-height: 84px;
+        }
+
+        .metric-label {
+            font-size: .75rem;
+            color: #6B7280;
+            margin-bottom: .3rem;
+            font-weight: 650;
+        }
+
+        .metric-value {
+            font-size: 1.65rem;
+            line-height: 1.1;
+            font-weight: 850;
+            color: #1F2937;
+            word-break: break-word;
+        }
+
+        .metric-value.small {
+            font-size: 1.18rem;
+        }
+
+        .metric-card.good { border-left: 5px solid #10B981; }
+        .metric-card.warn { border-left: 5px solid #F59E0B; }
+        .metric-card.bad { border-left: 5px solid #EF4444; }
+        .metric-card.brand { border-left: 5px solid #F97316; }
+        .metric-card.neutral { border-left: 5px solid #6B7280; }
+
+        .info-banner {
+            background: #FFF7ED;
+            border: 1px solid #F97316;
+            border-left: 6px solid #F97316;
+            border-radius: 15px;
+            padding: 14px 16px;
+            margin: 0.4rem 0 1rem 0;
+        }
+
+        .info-banner-title {
+            font-weight: 850;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .info-banner-body {
+            color: #374151;
+            font-size: .94rem;
+        }
+
+        .control-panel {
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 18px;
+            padding: 18px 18px 10px 18px;
+            box-shadow: 0 6px 20px rgba(15,23,42,.055);
+            margin-bottom: 1rem;
+        }
+
+        .client-card {
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 16px;
+            padding: 14px 15px;
+            box-shadow: 0 4px 14px rgba(15,23,42,.045);
+            min-height: 116px;
+        }
+
+        .client-name {
+            color: #111827;
+            font-size: 1.02rem;
+            font-weight: 820;
+            margin-bottom: 7px;
+        }
+
+        .client-stat {
+            color: #4B5563;
+            font-size: .88rem;
+            margin-bottom: 2px;
+        }
+
+        .task-card {
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 16px;
+            padding: 15px 16px;
+            box-shadow: 0 4px 14px rgba(15,23,42,.045);
+            margin-bottom: .75rem;
+        }
+
+        .task-title {
+            font-size: 1.05rem;
+            font-weight: 820;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .task-meta {
+            color: #6B7280;
+            font-size: .86rem;
+            margin-bottom: .35rem;
+        }
+
+        .footer-note {
+            color: #6B7280;
+            font-size: .85rem;
+            text-align: center;
+            opacity: .9;
+            margin-top: .35rem;
+            margin-bottom: .5rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
+# Helpers
+# =========================================================
 def get_secret(name: str, default: str = "") -> str:
     try:
         value = st.secrets.get(name, default)
-
         if value is None:
             return default
-
         return str(value).strip()
-
     except Exception:
         return os.getenv(name, default).strip()
 
@@ -68,12 +258,9 @@ def get_secret(name: str, default: str = "") -> str:
 def get_secret_table(name: str) -> Dict[str, str]:
     try:
         table = st.secrets.get(name, {})
-
         if not table:
             return {}
-
         return {str(k).strip(): str(v).strip() for k, v in table.items()}
-
     except Exception:
         return {}
 
@@ -83,13 +270,12 @@ def get_clickup_users() -> Dict[str, str]:
 
 
 def get_clickup_create_lists() -> Dict[str, str]:
-    """Optional list map for creating tasks.
-
-    Add this in Streamlit Secrets:
+    """
+    Optional Streamlit Secrets section for better create-task destinations:
 
     [CLICKUP_CREATE_LISTS]
-    "Jake / Incoming Tasks" = "123456789"
-    "Anchor Strap Co / Amazon Ads" = "234567890"
+    "Jake / Incoming Tasks" = "LIST_ID"
+    "Jake / Anchor Strap Co / Amazon Ads" = "LIST_ID"
     """
     return get_secret_table("CLICKUP_CREATE_LISTS")
 
@@ -100,26 +286,68 @@ def ordered_user_options(clickup_users: Dict[str, str]) -> List[str]:
 
     ordered = [name for name in USER_DISPLAY_ORDER if name in clickup_users]
     extras = sorted([name for name in clickup_users.keys() if name not in ordered])
-    user_options = ordered + extras
+    options = ordered + extras
 
-    if "All Users" not in user_options:
-        user_options = ["All Users"] + user_options
+    if "All Users" not in options:
+        options = ["All Users"] + options
 
-    return user_options
+    return options
 
 
 def split_ids(value: str) -> List[str]:
-    return [x.strip() for x in value.split(",") if x.strip()]
+    return [x.strip() for x in str(value or "").split(",") if x.strip()]
 
 
 def safe_int(value: Optional[str]) -> Optional[int]:
     if value in (None, ""):
         return None
-
     try:
         return int(str(value).strip())
     except Exception:
         return None
+
+
+def get_unique_values(df: pd.DataFrame, col: str) -> List[str]:
+    if df.empty or col not in df.columns:
+        return []
+    return sorted([str(x) for x in df[col].dropna().unique().tolist() if str(x).strip()])
+
+
+def render_metric_card(label: str, value: str, tone: str = "brand", small: bool = False) -> None:
+    value_class = "metric-value small" if small else "metric-value"
+    st.markdown(
+        f"""
+        <div class="metric-card {tone}">
+            <div class="metric-label">{label}</div>
+            <div class="{value_class}">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_info_banner(title: str, body: str) -> None:
+    st.markdown(
+        f"""
+        <div class="info-banner">
+            <div class="info-banner-title">{title}</div>
+            <div class="info-banner-body">{body}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def display_df(df: pd.DataFrame, height: int = 460) -> None:
+    if df is None or df.empty:
+        st.info("No data available.")
+        return
+
+    out = df.copy()
+    out.columns = [str(c).strip() for c in out.columns]
+    out = out.loc[:, ~pd.Index(out.columns).duplicated(keep="first")].copy()
+
+    st.dataframe(out, use_container_width=True, height=height, hide_index=True)
 
 
 @st.cache_data(ttl=180, show_spinner=False)
@@ -157,32 +385,18 @@ def get_client() -> ClickUpClient:
     )
 
 
-def get_unique_values(df: pd.DataFrame, col: str) -> List[str]:
-    if df.empty or col not in df.columns:
-        return []
-
-    return sorted([x for x in df[col].dropna().unique().tolist() if str(x).strip()])
-
-
 def get_list_options_from_tasks(df: pd.DataFrame) -> Dict[str, str]:
-    """Build a create-task list dropdown from visible tasks.
-
-    This only includes lists that already have at least one task in the loaded data.
-    For empty lists, add [CLICKUP_CREATE_LISTS] in Streamlit Secrets.
-    """
     options: Dict[str, str] = {}
 
     if df.empty:
         return options
 
     required_cols = {"space", "folder", "list", "list_id"}
-
     if not required_cols.issubset(set(df.columns)):
         return options
 
     for _, row in df.iterrows():
         list_id = str(row.get("list_id") or "").strip()
-
         if not list_id:
             continue
 
@@ -192,14 +406,192 @@ def get_list_options_from_tasks(df: pd.DataFrame) -> Dict[str, str]:
 
         parts = [x for x in [space, folder, list_name] if x]
         label = " / ".join(parts) if parts else list_id
-
         options[label] = list_id
 
     return dict(sorted(options.items(), key=lambda item: item[0].lower()))
 
 
+def apply_main_filters(
+    df: pd.DataFrame,
+    *,
+    selected_clients: List[str],
+    selected_lists: List[str],
+    selected_statuses: List[str],
+    selected_priorities: List[str],
+    selected_assignees: List[str],
+    selected_tags: List[str],
+    search: str,
+) -> pd.DataFrame:
+    filtered = filter_tasks(
+        df,
+        search=search,
+        statuses=selected_statuses,
+        priorities=selected_priorities,
+        assignees=selected_assignees,
+        lists=selected_lists,
+        tags=selected_tags,
+    )
+
+    if selected_clients and not filtered.empty:
+        filtered = filtered[filtered["folder"].isin(selected_clients)]
+
+    return filtered
+
+
+# =========================================================
+# Renderers
+# =========================================================
+def render_header() -> None:
+    st.markdown(
+        """
+        <div class="brand-shell">
+            <div class="brand-title">Evolved Commerce<br>ClickUp Command Center</div>
+            <div class="brand-subtitle">
+                Cleaner task visibility • Client folders • Due date focus • Status updates • Comments • Task creation • AI daily planning
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    render_info_banner(
+        "Cleaner task management layer",
+        "This dashboard treats ClickUp spaces as people, folders as clients, and lists as task workflows so you can see what matters faster.",
+    )
+
+
+def render_control_panel(
+    *,
+    clickup_users: Dict[str, str],
+    fallback_assignee_ids: str,
+    df: pd.DataFrame,
+):
+    st.markdown('<div class="section-title">Workspace View</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-note">Choose whose ClickUp space to view, then narrow the work by client, list, status, and search.</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.container():
+        st.markdown('<div class="control-panel">', unsafe_allow_html=True)
+
+        top1, top2, top3 = st.columns([1.2, 1.2, 1.6])
+
+        with top1:
+            user_options = ordered_user_options(clickup_users)
+            selected_user = st.selectbox(
+                "Person / Space",
+                user_options,
+                index=0,
+                help="Choose whose assigned tasks should be shown.",
+            )
+
+        with top2:
+            client_options = get_unique_values(df, "folder")
+            selected_clients = st.multiselect(
+                "Client / Folder",
+                client_options,
+                help="Folders are treated as clients.",
+            )
+
+        with top3:
+            search = st.text_input(
+                "Search",
+                placeholder="task, client, tag, assignee, description...",
+            )
+
+        bottom1, bottom2, bottom3, bottom4 = st.columns(4)
+
+        with bottom1:
+            list_options = get_unique_values(df, "list")
+            selected_lists = st.multiselect(
+                "Task List",
+                list_options,
+                help="Lists are the task workflows inside each client folder.",
+            )
+
+        with bottom2:
+            status_options = get_unique_values(df, "status")
+            selected_statuses = st.multiselect("Status", status_options)
+
+        with bottom3:
+            priority_options = ["Urgent", "High", "Normal", "Low", "None"]
+            selected_priorities = st.multiselect("Priority", priority_options)
+
+        with bottom4:
+            assignee_values = sorted(
+                {
+                    name.strip()
+                    for names in df.get("assignees", pd.Series(dtype=str)).dropna().tolist()
+                    for name in str(names).split(",")
+                    if name.strip()
+                }
+            )
+            selected_assignees = st.multiselect("Assignee", assignee_values)
+
+        tag_values = sorted(
+            {
+                tag.strip()
+                for tags in df.get("tags", pd.Series(dtype=str)).dropna().tolist()
+                for tag in str(tags).split(",")
+                if tag.strip()
+            }
+        )
+
+        with st.expander("More filters", expanded=False):
+            selected_tags = st.multiselect("Tags", tag_values)
+            card_limit = st.slider(
+                "Task cards to show",
+                min_value=5,
+                max_value=60,
+                value=18,
+                step=5,
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if selected_user == "All Users":
+        selected_assignee_ids = ""
+    else:
+        selected_assignee_ids = clickup_users.get(selected_user, "")
+
+    if not clickup_users:
+        selected_user = "Default Assignee Filter" if fallback_assignee_ids else "All Users"
+        selected_assignee_ids = fallback_assignee_ids
+
+    return {
+        "selected_user": selected_user,
+        "selected_assignee_ids": selected_assignee_ids,
+        "selected_clients": selected_clients,
+        "selected_lists": selected_lists,
+        "selected_statuses": selected_statuses,
+        "selected_priorities": selected_priorities,
+        "selected_assignees": selected_assignees,
+        "selected_tags": selected_tags,
+        "search": search,
+        "card_limit": card_limit,
+    }
+
+
+def render_summary_metrics(filtered: pd.DataFrame) -> None:
+    counts = metric_counts(filtered)
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+
+    with c1:
+        render_metric_card("Visible Tasks", str(counts["total"]), tone="brand")
+    with c2:
+        render_metric_card("Overdue", str(counts["overdue"]), tone="bad" if counts["overdue"] else "good")
+    with c3:
+        render_metric_card("Due Today", str(counts["today"]), tone="warn" if counts["today"] else "good")
+    with c4:
+        render_metric_card("Due This Week", str(counts["week"]), tone="brand")
+    with c5:
+        render_metric_card("No Due Date", str(counts["no_due"]), tone="neutral" if counts["no_due"] else "good")
+
+
 def render_task_table(df: pd.DataFrame, title: str):
-    st.subheader(title)
+    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
 
     if df.empty:
         st.info("No tasks found here.")
@@ -225,7 +617,7 @@ def render_task_table(df: pd.DataFrame, title: str):
         columns={
             "name": "Task",
             "folder": "Client",
-            "list": "List",
+            "list": "Task List",
             "space": "Person Space",
             "status": "Status",
             "priority": "Priority",
@@ -240,11 +632,12 @@ def render_task_table(df: pd.DataFrame, title: str):
         shown,
         use_container_width=True,
         hide_index=True,
+        height=520,
         column_config={
             "ClickUp": st.column_config.LinkColumn("ClickUp"),
             "Task": st.column_config.TextColumn("Task", width="large"),
             "Client": st.column_config.TextColumn("Client", width="medium"),
-            "List": st.column_config.TextColumn("List", width="medium"),
+            "Task List": st.column_config.TextColumn("Task List", width="medium"),
             "Person Space": st.column_config.TextColumn("Person Space", width="small"),
             "Due": st.column_config.DateColumn("Due"),
         },
@@ -259,123 +652,52 @@ def render_task_cards(df: pd.DataFrame, limit: int = 12):
     for _, row in df.head(limit).iterrows():
         overdue = bool(row.get("is_overdue"))
         due_text = row.get("due") or "No due date"
+        status_text = row.get("status") or "None"
+        priority_text = row.get("priority") or "None"
+        task_url = row.get("url") or ""
+        task_name = row.get("name") or "Untitled Task"
+        client = row.get("folder") or "No Client / Folder"
+        task_list = row.get("list") or "-"
+        assignees = row.get("assignees") or ""
+        space = row.get("space") or ""
+
         badge = "🔴 Overdue" if overdue else "🟢 Open"
 
-        with st.container(border=True):
-            col1, col2 = st.columns([4, 1])
+        st.markdown('<div class="task-card">', unsafe_allow_html=True)
 
-            with col1:
-                task_url = row.get("url") or ""
-                task_name = row.get("name") or "Untitled Task"
+        if task_url:
+            st.markdown(f'<div class="task-title"><a href="{task_url}" target="_blank">{task_name}</a></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="task-title">{task_name}</div>', unsafe_allow_html=True)
 
-                if task_url:
-                    st.markdown(f"### [{task_name}]({task_url})")
-                else:
-                    st.markdown(f"### {task_name}")
-
-                st.caption(
-                    f"{badge} · **Status:** {row.get('status') or 'None'} · "
-                    f"**Priority:** {row.get('priority') or 'None'} · "
-                    f"**Due:** {due_text}"
-                )
-
-                st.write(f"**Client:** {row.get('folder') or '-'}")
-                st.write(f"**List:** {row.get('list') or '-'}")
-
-                if row.get("assignees"):
-                    st.write(f"**Assignees:** {row.get('assignees')}")
-
-                if row.get("description"):
-                    with st.expander("Description preview"):
-                        st.write(str(row.get("description"))[:1200])
-
-            with col2:
-                if row.get("space"):
-                    st.caption(f"Space: {row.get('space')}")
-
-                if row.get("tags"):
-                    st.caption(f"Tags: {row.get('tags')}")
-
-
-def sidebar_filters(df: pd.DataFrame):
-    with st.sidebar:
-        st.header("Filters")
-
-        search = st.text_input(
-            "Search tasks",
-            placeholder="client, task, tag, assignee...",
+        st.markdown(
+            f"""
+            <div class="task-meta">
+                {badge} · <b>Status:</b> {status_text} · <b>Priority:</b> {priority_text} · <b>Due:</b> {due_text}
+            </div>
+            <div class="task-meta">
+                <b>Client:</b> {client} · <b>Task List:</b> {task_list} · <b>Space:</b> {space}
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
-        client_folders = get_unique_values(df, "folder")
-        selected_clients = st.multiselect(
-            "Client / Folder",
-            client_folders,
-            help="In your ClickUp setup, folders represent clients.",
-        )
+        if assignees:
+            st.caption(f"Assignees: {assignees}")
 
-        lists = get_unique_values(df, "list")
-        selected_lists = st.multiselect(
-            "List",
-            lists,
-            help="Lists are the task lists inside each client folder.",
-        )
+        if row.get("description"):
+            with st.expander("Description preview"):
+                st.write(str(row.get("description"))[:1200])
 
-        statuses = get_unique_values(df, "status")
-        selected_statuses = st.multiselect("Status", statuses)
-
-        priorities = ["Urgent", "High", "Normal", "Low", "None"]
-        selected_priorities = st.multiselect("Priority", priorities)
-
-        assignee_values = sorted(
-            {
-                name.strip()
-                for names in df.get("assignees", pd.Series(dtype=str)).dropna().tolist()
-                for name in str(names).split(",")
-                if name.strip()
-            }
-        )
-
-        selected_assignees = st.multiselect("Assignee", assignee_values)
-
-        tag_values = sorted(
-            {
-                tag.strip()
-                for tags in df.get("tags", pd.Series(dtype=str)).dropna().tolist()
-                for tag in str(tags).split(",")
-                if tag.strip()
-            }
-        )
-
-        selected_tags = st.multiselect("Tags", tag_values)
-
-        st.divider()
-
-        card_limit = st.slider(
-            "Task cards to show",
-            min_value=5,
-            max_value=50,
-            value=15,
-            step=5,
-        )
-
-    filtered = filter_tasks(
-        df,
-        search=search,
-        statuses=selected_statuses,
-        priorities=selected_priorities,
-        assignees=selected_assignees,
-        lists=selected_lists,
-        tags=selected_tags,
-    )
-
-    if selected_clients and not filtered.empty:
-        filtered = filtered[filtered["folder"].isin(selected_clients)]
-
-    return filtered, card_limit, selected_clients
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_client_overview(filtered: pd.DataFrame, card_limit: int):
-    st.subheader("Client Overview")
+    st.markdown('<div class="section-title">Client Overview</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-note">Folders are treated as clients. Use this view to spot which accounts need attention.</div>',
+        unsafe_allow_html=True,
+    )
 
     if filtered.empty:
         st.info("No tasks found for the current filters.")
@@ -388,6 +710,7 @@ def render_client_overview(filtered: pd.DataFrame, card_limit: int):
             overdue=("is_overdue", "sum"),
             due_today=("is_due_today", "sum"),
             due_this_week=("is_due_this_week", "sum"),
+            no_due_date=("has_no_due_date", "sum"),
         )
         .reset_index()
         .rename(columns={"folder": "Client"})
@@ -397,43 +720,92 @@ def render_client_overview(filtered: pd.DataFrame, card_limit: int):
         )
     )
 
-    client_summary["Client"] = client_summary["Client"].fillna("").replace(
-        "",
-        "No Client / Folder",
-    )
+    client_summary["Client"] = client_summary["Client"].fillna("").replace("", "No Client / Folder")
 
-    st.dataframe(
-        client_summary,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Client": st.column_config.TextColumn("Client", width="large"),
-            "total_tasks": st.column_config.NumberColumn("Total Tasks"),
-            "overdue": st.column_config.NumberColumn("Overdue"),
-            "due_today": st.column_config.NumberColumn("Due Today"),
-            "due_this_week": st.column_config.NumberColumn("Due This Week"),
-        },
-    )
+    top_clients = client_summary.head(8).copy()
+
+    card_cols = st.columns(4)
+    for idx, row in top_clients.iterrows():
+        with card_cols[idx % 4]:
+            tone = "#EF4444" if int(row["overdue"]) else "#F97316"
+            st.markdown(
+                f"""
+                <div class="client-card" style="border-left:5px solid {tone};">
+                    <div class="client-name">{row['Client']}</div>
+                    <div class="client-stat"><b>{int(row['total_tasks'])}</b> open/visible tasks</div>
+                    <div class="client-stat"><b>{int(row['overdue'])}</b> overdue</div>
+                    <div class="client-stat"><b>{int(row['due_today'])}</b> due today</div>
+                    <div class="client-stat"><b>{int(row['due_this_week'])}</b> due this week</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     selected_client_detail = st.selectbox(
-        "View tasks for client",
+        "Inspect client",
         client_summary["Client"].tolist(),
     )
 
     if selected_client_detail == "No Client / Folder":
         client_detail_df = filtered[filtered["folder"].fillna("").eq("")]
     else:
-        client_detail_df = filtered[
-            filtered["folder"].fillna("").eq(selected_client_detail)
-        ]
+        client_detail_df = filtered[filtered["folder"].fillna("").eq(selected_client_detail)]
 
     render_task_cards(client_detail_df, limit=card_limit)
     render_task_table(client_detail_df, f"{selected_client_detail} Tasks")
 
 
+def render_team_overview(df: pd.DataFrame):
+    st.markdown('<div class="section-title">Team Overview</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-note">A quick workload summary by person/space from the currently loaded ClickUp task data.</div>',
+        unsafe_allow_html=True,
+    )
+
+    if df.empty:
+        st.info("No task data loaded.")
+        return
+
+    summary = (
+        df.groupby("space", dropna=False)
+        .agg(
+            total_tasks=("id", "count"),
+            overdue=("is_overdue", "sum"),
+            due_today=("is_due_today", "sum"),
+            due_this_week=("is_due_this_week", "sum"),
+            no_due_date=("has_no_due_date", "sum"),
+        )
+        .reset_index()
+        .rename(columns={"space": "Person Space"})
+        .sort_values(["overdue", "due_today", "due_this_week", "total_tasks"], ascending=False)
+    )
+
+    summary["Person Space"] = summary["Person Space"].fillna("").replace("", "No Space")
+
+    st.dataframe(
+        summary,
+        use_container_width=True,
+        hide_index=True,
+        height=420,
+        column_config={
+            "Person Space": st.column_config.TextColumn("Person Space", width="large"),
+            "total_tasks": st.column_config.NumberColumn("Total Tasks"),
+            "overdue": st.column_config.NumberColumn("Overdue"),
+            "due_today": st.column_config.NumberColumn("Due Today"),
+            "due_this_week": st.column_config.NumberColumn("Due This Week"),
+            "no_due_date": st.column_config.NumberColumn("No Due Date"),
+        },
+    )
+
+
 def render_update_tab(df: pd.DataFrame):
-    st.subheader("Update a ClickUp Task")
-    st.warning("Changes here write directly to ClickUp after you confirm.")
+    st.markdown('<div class="section-title">Update a ClickUp Task</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-note">Change status, priority, due date, description, or leave a comment. Nothing writes to ClickUp until you confirm.</div>',
+        unsafe_allow_html=True,
+    )
 
     if df.empty:
         st.info("Load tasks first.")
@@ -453,31 +825,38 @@ def render_update_tab(df: pd.DataFrame):
         selected_name = selected.get("name") or "Selected Task"
 
         if selected_url:
-            st.write(f"**Selected:** [{selected_name}]({selected_url})")
+            st.markdown(f"**Selected:** [{selected_name}]({selected_url})")
         else:
-            st.write(f"**Selected:** {selected_name}")
+            st.markdown(f"**Selected:** {selected_name}")
 
-        st.write(f"**Client:** {selected.get('folder') or '-'}")
-        st.write(f"**List:** {selected.get('list') or '-'}")
+        u1, u2, u3 = st.columns(3)
+        with u1:
+            st.write(f"**Client:** {selected.get('folder') or '-'}")
+        with u2:
+            st.write(f"**Task List:** {selected.get('list') or '-'}")
+        with u3:
+            st.write(f"**Space:** {selected.get('space') or '-'}")
 
         new_name = st.text_input("Task name", value=selected.get("name", ""))
 
-        new_status = st.text_input(
-            "Status",
-            value=selected.get("status", ""),
-            help="Must match a valid status in that ClickUp list.",
-        )
-
-        priority_options = ["Do not change", "Urgent", "High", "Normal", "Low"]
-        new_priority_label = st.selectbox("Priority", priority_options)
-
-        current_due = selected.get("due")
-        change_due = st.checkbox("Change due date")
-        new_due = (
-            st.date_input("New due date", value=current_due or date.today())
-            if change_due
-            else None
-        )
+        u4, u5, u6 = st.columns(3)
+        with u4:
+            new_status = st.text_input(
+                "Status",
+                value=selected.get("status", ""),
+                help="Must match a valid status in that ClickUp list.",
+            )
+        with u5:
+            priority_options = ["Do not change", "Urgent", "High", "Normal", "Low"]
+            new_priority_label = st.selectbox("Priority", priority_options)
+        with u6:
+            change_due = st.checkbox("Change due date")
+            current_due = selected.get("due")
+            new_due = (
+                st.date_input("New due date", value=current_due or date.today())
+                if change_due
+                else None
+            )
 
         change_description = st.checkbox("Replace description")
         new_description = ""
@@ -500,7 +879,7 @@ def render_update_tab(df: pd.DataFrame):
             value=False,
         )
 
-        preview = st.form_submit_button("Preview update")
+        preview = st.form_submit_button("Preview update", type="primary")
 
     if preview:
         changes = {}
@@ -531,7 +910,7 @@ def render_update_tab(df: pd.DataFrame):
     pending = st.session_state.get("pending_update")
 
     if pending:
-        st.divider()
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
         st.markdown("### Review before submitting")
         st.write(f"Task: **{pending['task_name']}**")
         st.json(
@@ -580,16 +959,15 @@ def render_create_task_tab(
     clickup_users: Dict[str, str],
     selected_user: str,
 ):
-    st.subheader("Create a ClickUp Task")
-    st.warning("This creates a new task in ClickUp after you confirm.")
+    st.markdown('<div class="section-title">Create a ClickUp Task</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-note">Create a new task in a ClickUp list. Nothing writes to ClickUp until you confirm.</div>',
+        unsafe_allow_html=True,
+    )
 
     list_options = get_list_options_from_tasks(df)
     secret_list_options = get_clickup_create_lists()
-
-    combined_list_options = {
-        **list_options,
-        **secret_list_options,
-    }
+    combined_list_options = {**list_options, **secret_list_options}
 
     if not combined_list_options:
         st.info(
@@ -606,11 +984,20 @@ def render_create_task_tab(
         default_assignees = [selected_user]
 
     with st.form("create_task_form"):
-        create_list_label = st.selectbox(
-            "Create task in list",
-            list(combined_list_options.keys()),
-            help="This is the destination ClickUp list for the new task.",
-        )
+        c1, c2 = st.columns([2, 1])
+
+        with c1:
+            create_list_label = st.selectbox(
+                "Create task in list",
+                list(combined_list_options.keys()),
+                help="This is the destination ClickUp list for the new task.",
+            )
+
+        with c2:
+            priority_label = st.selectbox(
+                "Priority",
+                ["None", "Urgent", "High", "Normal", "Low"],
+            )
 
         task_name = st.text_input("Task name")
 
@@ -620,34 +1007,33 @@ def render_create_task_tab(
             placeholder="Add useful context, links, instructions, etc.",
         )
 
-        selected_assignees = st.multiselect(
-            "Assign to",
-            assignable_users,
-            default=default_assignees,
-        )
+        c3, c4, c5 = st.columns(3)
 
-        status = st.text_input(
-            "Starting status",
-            value="",
-            placeholder="Optional. Must match a valid status in the destination list.",
-        )
+        with c3:
+            selected_assignees = st.multiselect(
+                "Assign to",
+                assignable_users,
+                default=default_assignees,
+            )
 
-        priority_label = st.selectbox(
-            "Priority",
-            ["None", "Urgent", "High", "Normal", "Low"],
-        )
+        with c4:
+            status = st.text_input(
+                "Starting status",
+                value="",
+                placeholder="Optional. Must match destination list.",
+            )
 
-        add_due_date = st.checkbox("Add due date", value=False)
-        due_date = st.date_input("Due date", value=date.today()) if add_due_date else None
+        with c5:
+            add_due_date = st.checkbox("Add due date", value=False)
+            due_date = st.date_input("Due date", value=date.today()) if add_due_date else None
 
-        preview_create = st.form_submit_button("Preview new task")
+        preview_create = st.form_submit_button("Preview new task", type="primary")
 
     if preview_create:
         assignee_ids = []
 
         for name in selected_assignees:
             user_id = safe_int(clickup_users.get(name))
-
             if user_id is not None:
                 assignee_ids.append(user_id)
 
@@ -670,7 +1056,7 @@ def render_create_task_tab(
     pending = st.session_state.get("pending_create")
 
     if pending:
-        st.divider()
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
         st.markdown("### Review before creating")
         st.json(
             {
@@ -716,6 +1102,7 @@ def render_create_task_tab(
 
                 task_url = created.get("url")
                 st.success("Task created in ClickUp.")
+
                 if task_url:
                     st.markdown(f"[Open new task in ClickUp]({task_url})")
 
@@ -726,115 +1113,171 @@ def render_create_task_tab(
                 st.error(f"Task creation failed: {exc}")
 
 
-def main():
-    st.title("✅ ClickUp Command Center")
-    st.caption("A cleaner dashboard for tasks, clients, due dates, updates, and quick task creation.")
+def render_ai_brief(filtered: pd.DataFrame):
+    st.markdown('<div class="section-title">AI Daily Brief</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-note">Summarizes what to prioritize from the currently filtered task view. This does not change ClickUp.</div>',
+        unsafe_allow_html=True,
+    )
 
+    if st.button("Generate AI brief", type="primary"):
+        brief = get_ai_daily_brief(
+            filtered,
+            api_key=get_secret("OPENAI_API_KEY"),
+            model=get_secret("OPENAI_MODEL", "gpt-5.5-thinking"),
+        )
+        st.markdown(brief)
+
+
+# =========================================================
+# Sidebar
+# =========================================================
+with st.sidebar:
+    st.markdown("## Tool Guide")
+    st.markdown(
+        """
+**What this tool does**
+- Pulls ClickUp tasks by person/space
+- Treats folders as clients
+- Shows due, overdue, and priority work
+- Lets you update task status, priority, due date, and comments
+- Lets you create new ClickUp tasks
+- Can generate an AI daily work brief
+"""
+    )
+
+    st.markdown("---")
+    st.markdown("## Data Settings")
+
+    include_closed = st.checkbox("Include closed tasks", value=False)
+
+    page_limit = st.number_input(
+        "Max ClickUp pages",
+        min_value=1,
+        max_value=50,
+        value=10,
+        step=1,
+        help="Each ClickUp page can return up to 100 tasks.",
+    )
+
+    refresh_clicked = st.button("Refresh ClickUp Data", use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("## App Info")
+    st.markdown("**App:** ClickUp Command Center")
+    st.markdown("**Owner:** Jake Yorgason, Evolved Commerce")
+
+
+# =========================================================
+# Main app
+# =========================================================
+def main():
     api_token = get_secret("CLICKUP_API_TOKEN")
     team_id = get_secret("CLICKUP_TEAM_ID")
     list_ids = get_secret("CLICKUP_LIST_IDS")
     fallback_assignee_ids = get_secret("CLICKUP_ASSIGNEE_IDS")
-
     clickup_users = get_clickup_users()
+
+    if refresh_clicked:
+        st.cache_data.clear()
+        st.rerun()
+
+    render_header()
 
     if not api_token or not team_id:
         st.error("Add CLICKUP_API_TOKEN and CLICKUP_TEAM_ID in Streamlit Cloud Secrets.")
         st.stop()
 
-    with st.sidebar:
-        st.header("User View")
-
-        user_options = ordered_user_options(clickup_users)
-
-        selected_user = st.selectbox(
-            "Choose ClickUp user",
-            user_options,
-            index=0,
-            help="Choose whose assigned tasks should be shown.",
-        )
-
-        if selected_user == "All Users":
-            assignee_ids = ""
-        else:
-            assignee_ids = clickup_users.get(selected_user, "")
-
-            if not assignee_ids:
-                st.warning(
-                    f"No ClickUp user ID found for {selected_user}. "
-                    "Check the [CLICKUP_USERS] section in Streamlit Secrets."
-                )
-
-        if not clickup_users:
-            st.info(
-                "No [CLICKUP_USERS] section found in Streamlit Secrets. "
-                "Using CLICKUP_ASSIGNEE_IDS instead."
+    # Load broad task set first so controls can show clients/lists/statuses.
+    # Then reload by selected user after the top selector is chosen.
+    with st.spinner("Loading ClickUp task structure..."):
+        try:
+            initial_raw_tasks = load_tasks(
+                api_token,
+                team_id,
+                list_ids,
+                fallback_assignee_ids,
+                include_closed,
+                int(page_limit),
             )
-            assignee_ids = fallback_assignee_ids
-            selected_user = "Default Assignee Filter" if fallback_assignee_ids else "All Users"
+            initial_df = normalize_tasks(initial_raw_tasks)
+        except Exception as exc:
+            st.error(f"Could not load ClickUp tasks: {exc}")
+            st.stop()
 
-        st.divider()
-        st.header("Data")
+    control_state = render_control_panel(
+        clickup_users=clickup_users,
+        fallback_assignee_ids=fallback_assignee_ids,
+        df=initial_df,
+    )
 
-        include_closed = st.checkbox("Include closed tasks", value=False)
+    selected_user = control_state["selected_user"]
+    selected_assignee_ids = control_state["selected_assignee_ids"]
 
-        page_limit = st.number_input(
-            "Max ClickUp pages",
-            min_value=1,
-            max_value=50,
-            value=10,
-            step=1,
-            help="Each ClickUp page can return up to 100 tasks.",
-        )
-
-        if st.button("Refresh from ClickUp"):
-            st.cache_data.clear()
-            st.rerun()
-
-    st.info(f"Currently viewing: {selected_user}")
-
-    with st.spinner("Loading ClickUp tasks..."):
+    # Reload task data based on the selected person/space.
+    with st.spinner(f"Loading tasks for {selected_user}..."):
         try:
             raw_tasks = load_tasks(
                 api_token,
                 team_id,
                 list_ids,
-                assignee_ids,
+                selected_assignee_ids,
                 include_closed,
                 int(page_limit),
             )
             df = normalize_tasks(raw_tasks)
-
         except Exception as exc:
-            st.error(f"Could not load ClickUp tasks: {exc}")
+            st.error(f"Could not load ClickUp tasks for {selected_user}: {exc}")
             st.stop()
 
-    filtered, card_limit, selected_clients = sidebar_filters(df)
-    counts = metric_counts(filtered)
+    filtered = apply_main_filters(
+        df,
+        selected_clients=control_state["selected_clients"],
+        selected_lists=control_state["selected_lists"],
+        selected_statuses=control_state["selected_statuses"],
+        selected_priorities=control_state["selected_priorities"],
+        selected_assignees=control_state["selected_assignees"],
+        selected_tags=control_state["selected_tags"],
+        search=control_state["search"],
+    )
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Visible Tasks", counts["total"])
-    c2.metric("Overdue", counts["overdue"])
-    c3.metric("Due Today", counts["today"])
-    c4.metric("Due This Week", counts["week"])
-    c5.metric("No Due Date", counts["no_due"])
+    st.caption(
+        f"Currently viewing: **{selected_user}**"
+        + (
+            f" · Client filter: **{', '.join(control_state['selected_clients'])}**"
+            if control_state["selected_clients"]
+            else " · Client filter: **All Clients**"
+        )
+    )
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    render_summary_metrics(filtered)
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
     tabs = st.tabs(
         [
-            "Focus",
+            "Focus Queue",
+            "Client Board",
             "Today",
             "This Week",
             "Overdue",
-            "No Due Date",
-            "Client Overview",
+            "Team Overview",
             "All Tasks",
-            "AI Brief",
             "Update Task",
             "Create Task",
+            "AI Brief",
         ]
     )
 
+    card_limit = control_state["card_limit"]
+
     with tabs[0]:
-        st.subheader("Focus Queue")
+        st.markdown('<div class="section-title">Focus Queue</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="section-note">Overdue, due today, urgent, and high-priority tasks from the current view.</div>',
+            unsafe_allow_html=True,
+        )
 
         focus = filtered.copy()
 
@@ -848,63 +1291,52 @@ def main():
         render_task_cards(focus, limit=card_limit)
 
     with tabs[1]:
-        today_df = filtered[filtered["is_due_today"]] if not filtered.empty else filtered
-        render_task_cards(today_df, limit=card_limit)
-        render_task_table(today_df, "Today Table")
+        render_client_overview(filtered, card_limit)
 
     with tabs[2]:
-        week_df = (
-            filtered[filtered["is_due_this_week"]]
-            if not filtered.empty
-            else filtered
-        )
-        render_task_cards(week_df, limit=card_limit)
-        render_task_table(week_df, "This Week Table")
+        today_df = filtered[filtered["is_due_today"]] if not filtered.empty else filtered
+        render_task_cards(today_df, limit=card_limit)
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_task_table(today_df, "Today Table")
 
     with tabs[3]:
-        overdue_df = (
-            filtered[filtered["is_overdue"]]
-            if not filtered.empty
-            else filtered
-        )
-        render_task_cards(overdue_df, limit=card_limit)
-        render_task_table(overdue_df, "Overdue Table")
+        week_df = filtered[filtered["is_due_this_week"]] if not filtered.empty else filtered
+        render_task_cards(week_df, limit=card_limit)
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_task_table(week_df, "This Week Table")
 
     with tabs[4]:
-        no_due_df = (
-            filtered[filtered["has_no_due_date"]]
-            if not filtered.empty
-            else filtered
-        )
-        render_task_cards(no_due_df, limit=card_limit)
-        render_task_table(no_due_df, "No Due Date Table")
+        overdue_df = filtered[filtered["is_overdue"]] if not filtered.empty else filtered
+        render_task_cards(overdue_df, limit=card_limit)
+        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_task_table(overdue_df, "Overdue Table")
 
     with tabs[5]:
-        render_client_overview(filtered, card_limit)
+        render_team_overview(df)
 
     with tabs[6]:
         render_task_table(filtered, "All Visible Tasks")
 
     with tabs[7]:
-        st.subheader("AI Daily Brief")
-        st.caption("This only summarizes. It does not change ClickUp.")
-
-        if st.button("Generate AI brief"):
-            brief = get_ai_daily_brief(
-                filtered,
-                api_key=get_secret("OPENAI_API_KEY"),
-                model=get_secret("OPENAI_MODEL", "gpt-5.5-thinking"),
-            )
-            st.markdown(brief)
-
-    with tabs[8]:
         render_update_tab(filtered)
 
-    with tabs[9]:
+    with tabs[8]:
         render_create_task_tab(
             df=df,
             clickup_users=clickup_users,
             selected_user=selected_user,
+        )
+
+    with tabs[9]:
+        render_ai_brief(filtered)
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+
+    footer_col1, footer_col2, footer_col3 = st.columns([3, 2, 3])
+    with footer_col2:
+        st.markdown(
+            '<div class="footer-note">Evolved Commerce ClickUp Command Center</div>',
+            unsafe_allow_html=True,
         )
 
 
