@@ -695,7 +695,7 @@ def render_create_task_tab(df: pd.DataFrame, clickup_users: Dict[str, str], sele
 def render_ai_brief(filtered: pd.DataFrame):
     st.markdown('<div class="section-title">AI Daily Brief</div>', unsafe_allow_html=True)
     if st.button("Generate AI brief", type="primary"):
-        brief = get_ai_daily_brief(filtered, api_key=get_secret("OPENAI_API_KEY"), model=get_secret("OPENAI_MODEL", "gpt-5.5-thinking"))
+        brief = get_ai_daily_brief(filtered, api_key=get_secret("OPENAI_API_KEY"), model=get_secret("OPENAI_MODEL", "gpt-5.5"))
         st.markdown(brief)
 
 
