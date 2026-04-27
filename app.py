@@ -744,8 +744,6 @@ def main():
     selected_space_name = user_state["selected_space_name"]
     selected_space_id = user_state["selected_space_id"]
 
-    if selected_user != "All Users" and not selected_space_id:
-        st.warning(f"No matching ClickUp space was found for {selected_user} in clickup_folder_ids.csv. Folder choices will fall back to loaded task data.")
 
     with st.spinner(f"Loading tasks for {selected_user}..."):
         try:
