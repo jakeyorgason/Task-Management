@@ -68,83 +68,79 @@ USER_DISPLAY_ORDER = [
 st.markdown(
     """
     <style>
-
         html, body, [data-testid="stAppViewContainer"], .stApp {
             background: #FFFFFF !important;
             color: #111827 !important;
         }
-        
+
         [data-testid="stHeader"] {
             background: #FFFFFF !important;
         }
-        
+
         [data-testid="stToolbar"] {
             background: #FFFFFF !important;
         }
-        
+
         [data-testid="stSidebar"] {
             background: #F5F5F5 !important;
             color: #111827 !important;
         }
-        
+
         [data-testid="stSidebar"] * {
             color: #111827 !important;
         }
-        
+
         [data-testid="stSidebar"] button {
             color: #111827 !important;
         }
-        
+
         [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
             color: #111827 !important;
         }
-        
-        .block-container {
+
+        .main > div {
+            padding-top: 1rem;
             background: #FFFFFF !important;
         }
-        
+
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1.5rem;
+            max-width: 1460px;
+            background: #FFFFFF !important;
+        }
+
         div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
             color: #111827 !important;
             border-color: #D1D5DB !important;
         }
-        
+
         div[data-baseweb="input"] input {
             background-color: #FFFFFF !important;
             color: #111827 !important;
         }
-        
+
         textarea {
             background-color: #FFFFFF !important;
             color: #111827 !important;
         }
-        
+
         [data-testid="stTextInput"] input {
             background-color: #FFFFFF !important;
             color: #111827 !important;
         }
-        
+
         [data-testid="stMultiSelect"] div {
             color: #111827 !important;
         }
-        
+
         [data-testid="stTabs"] {
             background: #FFFFFF !important;
         }
-        
+
         [data-testid="stDataFrame"] {
             background: #FFFFFF !important;
-        }
-    
-        .main > div { padding-top: 1rem; }
-        .block-container {
-            padding-top: 1rem;
-            padding-bottom: 1.5rem;
-            max-width: 1460px;
-        }
-
-        [data-testid="stSidebar"] {
-            background: #F3F4F6;
         }
 
         .brand-shell {
@@ -259,6 +255,7 @@ st.markdown(
             padding: 14px 15px;
             box-shadow: 0 4px 14px rgba(15,23,42,.045);
             min-height: 116px;
+            margin-bottom: .75rem;
         }
 
         .client-name {
@@ -524,37 +521,63 @@ def render_header() -> None:
 
     render_info_banner(
         "Cleaner task management layer",
-        "This dashboard treats ClickUp spaces as people, folders as clients, and lists as task workflows so you can see what matters faster.",
+        "Choose a person first. Then the client, list, status, and search filters update based only on that person’s ClickUp tasks.",
     )
 
 
-def render_control_panel(
+def render_user_panel(
     *,
     clickup_users: Dict[str, str],
     fallback_assignee_ids: str,
-    df: pd.DataFrame,
 ):
     st.markdown('<div class="section-title">Workspace View</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-note">Choose whose ClickUp space to view, then narrow the work by client, list, status, and search.</div>',
+        '<div class="section-note">Choose whose ClickUp space to view first. Client and task filters will update after that person’s tasks load.</div>',
         unsafe_allow_html=True,
     )
 
     with st.container():
         st.markdown('<div class="control-panel">', unsafe_allow_html=True)
 
-        top1, top2, top3 = st.columns([1.2, 1.2, 1.6])
+        user_options = ordered_user_options(clickup_users)
+
+        selected_user = st.selectbox(
+            "Person / Space",
+            user_options,
+            index=0,
+            help="Choose whose assigned tasks should be shown.",
+        )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if selected_user == "All Users":
+        selected_assignee_ids = ""
+    else:
+        selected_assignee_ids = clickup_users.get(selected_user, "")
+
+    if not clickup_users:
+        selected_user = "Default Assignee Filter" if fallback_assignee_ids else "All Users"
+        selected_assignee_ids = fallback_assignee_ids
+
+    return {
+        "selected_user": selected_user,
+        "selected_assignee_ids": selected_assignee_ids,
+    }
+
+
+def render_filter_panel(df: pd.DataFrame):
+    st.markdown('<div class="section-title">Task Filters</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-note">These filters are generated from the currently selected person/space.</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.container():
+        st.markdown('<div class="control-panel">', unsafe_allow_html=True)
+
+        top1, top2 = st.columns([1.2, 1.8])
 
         with top1:
-            user_options = ordered_user_options(clickup_users)
-            selected_user = st.selectbox(
-                "Person / Space",
-                user_options,
-                index=0,
-                help="Choose whose assigned tasks should be shown.",
-            )
-
-        with top2:
             client_options = get_unique_values(df, "folder")
             selected_clients = st.multiselect(
                 "Client / Folder",
@@ -562,7 +585,7 @@ def render_control_panel(
                 help="Folders are treated as clients.",
             )
 
-        with top3:
+        with top2:
             search = st.text_input(
                 "Search",
                 placeholder="task, client, tag, assignee, description...",
@@ -618,18 +641,7 @@ def render_control_panel(
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-    if selected_user == "All Users":
-        selected_assignee_ids = ""
-    else:
-        selected_assignee_ids = clickup_users.get(selected_user, "")
-
-    if not clickup_users:
-        selected_user = "Default Assignee Filter" if fallback_assignee_ids else "All Users"
-        selected_assignee_ids = fallback_assignee_ids
-
     return {
-        "selected_user": selected_user,
-        "selected_assignee_ids": selected_assignee_ids,
         "selected_clients": selected_clients,
         "selected_lists": selected_lists,
         "selected_statuses": selected_statuses,
@@ -734,7 +746,10 @@ def render_task_cards(df: pd.DataFrame, limit: int = 12):
         st.markdown('<div class="task-card">', unsafe_allow_html=True)
 
         if task_url:
-            st.markdown(f'<div class="task-title"><a href="{task_url}" target="_blank">{task_name}</a></div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="task-title"><a href="{task_url}" target="_blank">{task_name}</a></div>',
+                unsafe_allow_html=True,
+            )
         else:
             st.markdown(f'<div class="task-title">{task_name}</div>', unsafe_allow_html=True)
 
@@ -800,7 +815,7 @@ def render_client_overview(filtered: pd.DataFrame, card_limit: int):
                 f"""
                 <div class="client-card" style="border-left:5px solid {tone};">
                     <div class="client-name">{row['Client']}</div>
-                    <div class="client-stat"><b>{int(row['total_tasks'])}</b> open/visible tasks</div>
+                    <div class="client-stat"><b>{int(row['total_tasks'])}</b> visible tasks</div>
                     <div class="client-stat"><b>{int(row['overdue'])}</b> overdue</div>
                     <div class="client-stat"><b>{int(row['due_today'])}</b> due today</div>
                     <div class="client-stat"><b>{int(row['due_this_week'])}</b> due this week</div>
@@ -1256,33 +1271,14 @@ def main():
         st.error("Add CLICKUP_API_TOKEN and CLICKUP_TEAM_ID in Streamlit Cloud Secrets.")
         st.stop()
 
-    # Load broad task set first so controls can show clients/lists/statuses.
-    # Then reload by selected user after the top selector is chosen.
-    with st.spinner("Loading ClickUp task structure..."):
-        try:
-            initial_raw_tasks = load_tasks(
-                api_token,
-                team_id,
-                list_ids,
-                fallback_assignee_ids,
-                include_closed,
-                int(page_limit),
-            )
-            initial_df = normalize_tasks(initial_raw_tasks)
-        except Exception as exc:
-            st.error(f"Could not load ClickUp tasks: {exc}")
-            st.stop()
-
-    control_state = render_control_panel(
+    user_state = render_user_panel(
         clickup_users=clickup_users,
         fallback_assignee_ids=fallback_assignee_ids,
-        df=initial_df,
     )
 
-    selected_user = control_state["selected_user"]
-    selected_assignee_ids = control_state["selected_assignee_ids"]
+    selected_user = user_state["selected_user"]
+    selected_assignee_ids = user_state["selected_assignee_ids"]
 
-    # Reload task data based on the selected person/space.
     with st.spinner(f"Loading tasks for {selected_user}..."):
         try:
             raw_tasks = load_tasks(
@@ -1298,22 +1294,24 @@ def main():
             st.error(f"Could not load ClickUp tasks for {selected_user}: {exc}")
             st.stop()
 
+    filter_state = render_filter_panel(df)
+
     filtered = apply_main_filters(
         df,
-        selected_clients=control_state["selected_clients"],
-        selected_lists=control_state["selected_lists"],
-        selected_statuses=control_state["selected_statuses"],
-        selected_priorities=control_state["selected_priorities"],
-        selected_assignees=control_state["selected_assignees"],
-        selected_tags=control_state["selected_tags"],
-        search=control_state["search"],
+        selected_clients=filter_state["selected_clients"],
+        selected_lists=filter_state["selected_lists"],
+        selected_statuses=filter_state["selected_statuses"],
+        selected_priorities=filter_state["selected_priorities"],
+        selected_assignees=filter_state["selected_assignees"],
+        selected_tags=filter_state["selected_tags"],
+        search=filter_state["search"],
     )
 
     st.caption(
         f"Currently viewing: **{selected_user}**"
         + (
-            f" · Client filter: **{', '.join(control_state['selected_clients'])}**"
-            if control_state["selected_clients"]
+            f" · Client filter: **{', '.join(filter_state['selected_clients'])}**"
+            if filter_state["selected_clients"]
             else " · Client filter: **All Clients**"
         )
     )
@@ -1338,7 +1336,7 @@ def main():
         ]
     )
 
-    card_limit = control_state["card_limit"]
+    card_limit = filter_state["card_limit"]
 
     with tabs[0]:
         st.markdown('<div class="section-title">Focus Queue</div>', unsafe_allow_html=True)
