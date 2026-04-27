@@ -1089,7 +1089,7 @@ def render_inline_task_actions(row: pd.Series, key_prefix: str = "inline_task_ac
             )
 
 
-def render_task_cards(df: pd.DataFrame, limit: int = 12):
+def render_task_cards(df: pd.DataFrame, limit: int = 12, key_prefix: str = "task_cards"):
     if df.empty:
         st.info("No matching tasks.")
         return
@@ -1145,7 +1145,7 @@ def render_task_cards(df: pd.DataFrame, limit: int = 12):
         with action_col2:
             st.caption("Expand Quick actions to update status, priority, due date, or add a comment.")
 
-        render_inline_task_actions(row)
+        render_inline_task_actions(row, key_prefix=key_prefix)
 
         if row.get("description"):
             with st.expander("Description preview"):
@@ -1232,7 +1232,7 @@ def render_client_overview(filtered: pd.DataFrame, card_limit: int):
     else:
         client_detail_df = filtered[filtered["folder"].fillna("").map(clean_text).eq(selected_client_name)]
 
-    render_task_cards(client_detail_df, limit=card_limit)
+    render_task_cards(client_detail_df, limit=card_limit, key_prefix="client_board")
     render_task_table(client_detail_df, f"{selected_client_name} Tasks")
 
 
@@ -1782,26 +1782,26 @@ def main():
                 | (focus["priority"].isin(["Urgent", "High"]))
             ]
 
-        render_task_cards(focus, limit=card_limit)
+        render_task_cards(focus, limit=card_limit, key_prefix="focus_queue")
 
     with tabs[1]:
         render_client_overview(filtered, card_limit)
 
     with tabs[2]:
         today_df = filtered[filtered["is_due_today"]] if not filtered.empty else filtered
-        render_task_cards(today_df, limit=card_limit)
+        render_task_cards(today_df, limit=card_limit, key_prefix="today")
         render_divider()
         render_task_table(today_df, "Today Table")
 
     with tabs[3]:
         week_df = filtered[filtered["is_due_this_week"]] if not filtered.empty else filtered
-        render_task_cards(week_df, limit=card_limit)
+        render_task_cards(week_df, limit=card_limit, key_prefix="this_week")
         render_divider()
         render_task_table(week_df, "This Week Table")
 
     with tabs[4]:
         overdue_df = filtered[filtered["is_overdue"]] if not filtered.empty else filtered
-        render_task_cards(overdue_df, limit=card_limit)
+        render_task_cards(overdue_df, limit=card_limit, key_prefix="overdue")
         render_divider()
         render_task_table(overdue_df, "Overdue Table")
 
