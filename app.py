@@ -63,10 +63,6 @@ USER_DISPLAY_ORDER = [
 ]
 
 
-# Optional fallback mapping.
-# Your current CSV uses full names for most account-manager spaces, so most users do
-# not need a special map. This fallback handles alternate visible names, nicknames,
-# and shared/legacy spaces.
 DEFAULT_USER_SPACE_MAP = {
     "All Users": "",
     "Jake Yorgason": "Jake Yorgason",
@@ -181,8 +177,10 @@ st.markdown(
         }
 
         .section-divider {
-            border-top: 1px solid #E5E7EB;
-            margin: 1.1rem 0 1.2rem 0;
+            height: 1px;
+            background: #E5E7EB;
+            border: 0;
+            margin: 1.25rem 0 1.25rem 0;
         }
 
         .metric-card {
@@ -239,15 +237,6 @@ st.markdown(
             font-size: .94rem;
         }
 
-        .control-panel {
-            background: #FFFFFF;
-            border: 1px solid #E5E7EB;
-            border-radius: 18px;
-            padding: 18px 18px 10px 18px;
-            box-shadow: 0 6px 20px rgba(15,23,42,.055);
-            margin-bottom: 1rem;
-        }
-
         .client-card {
             background: #FFFFFF;
             border: 1px solid #E5E7EB;
@@ -291,6 +280,12 @@ st.markdown(
             color: #6B7280;
             font-size: .86rem;
             margin-bottom: .35rem;
+        }
+
+        .inline-action-note {
+            color: #6B7280;
+            font-size: .86rem;
+            margin-top: .2rem;
         }
 
         .footer-note {
@@ -376,10 +371,19 @@ def clean_text(value) -> str:
     return " ".join(str(value or "").strip().split())
 
 
+def safe_key(value) -> str:
+    raw = clean_text(value)
+    return "".join(ch if ch.isalnum() else "_" for ch in raw)
+
+
 def get_unique_values(df: pd.DataFrame, col: str) -> List[str]:
     if df.empty or col not in df.columns:
         return []
     return sorted([clean_text(x) for x in df[col].dropna().unique().tolist() if clean_text(x)])
+
+
+def render_divider() -> None:
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
 
 def render_metric_card(label: str, value: str, tone: str = "brand", small: bool = False) -> None:
@@ -454,7 +458,6 @@ def get_client() -> ClickUpClient:
     )
 
 
-@st.cache_data(ttl=600, show_spinner=False)
 def load_folder_reference() -> pd.DataFrame:
     candidates = [
         Path("clickup_folder_ids.csv"),
@@ -462,11 +465,15 @@ def load_folder_reference() -> pd.DataFrame:
         Path("assets/clickup_folder_ids.csv"),
     ]
 
-    path = next((p for p in candidates if p.exists()), None)
-    if path is None:
+    existing_paths = [p for p in candidates if p.exists()]
+
+    if not existing_paths:
         return pd.DataFrame(columns=["space_name", "space_id", "folder_name", "folder_id"])
 
+    path = existing_paths[0]
+
     df = pd.read_csv(path, dtype=str).fillna("")
+
     required = ["space_name", "space_id", "folder_name", "folder_id"]
     for col in required:
         if col not in df.columns:
@@ -478,6 +485,8 @@ def load_folder_reference() -> pd.DataFrame:
 
     df = df[df["folder_name"].astype(str).str.len() > 0].copy()
     df = df.drop_duplicates(subset=["space_name", "folder_name", "folder_id"])
+    df.attrs["source_path"] = str(path)
+
     return df.sort_values(["space_name", "folder_name"]).reset_index(drop=True)
 
 
@@ -506,12 +515,33 @@ def get_mapped_space_name(selected_user: str, folder_ref: pd.DataFrame) -> str:
     return mapped
 
 
-def get_folder_options_for_user(selected_user: str, df: pd.DataFrame, folder_ref: pd.DataFrame) -> pd.DataFrame:
-    """Return folder options with folder_name/folder_id/space_name/space_id.
+def build_folder_options_from_tasks(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["space_name", "space_id", "folder_name", "folder_id"])
 
-    Prefer the authoritative CSV. Fall back to loaded task data if the CSV does
-    not have a matching space for the selected user.
-    """
+    rows = []
+    for _, row in df.iterrows():
+        folder_name = clean_text(row.get("folder"))
+        if not folder_name:
+            continue
+
+        rows.append(
+            {
+                "space_name": clean_text(row.get("space")),
+                "space_id": clean_text(row.get("space_id")),
+                "folder_name": folder_name,
+                "folder_id": clean_text(row.get("folder_id")),
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(columns=["space_name", "space_id", "folder_name", "folder_id"])
+
+    out = pd.DataFrame(rows).fillna("")
+    return out.drop_duplicates(subset=["space_name", "folder_name", "folder_id"]).sort_values("folder_name")
+
+
+def get_folder_options_for_user(selected_user: str, df: pd.DataFrame, folder_ref: pd.DataFrame) -> pd.DataFrame:
     required = ["space_name", "space_id", "folder_name", "folder_id"]
 
     if selected_user == "All Users":
@@ -529,36 +559,7 @@ def get_folder_options_for_user(selected_user: str, df: pd.DataFrame, folder_ref
     return build_folder_options_from_tasks(df)
 
 
-def build_folder_options_from_tasks(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty:
-        return pd.DataFrame(columns=["space_name", "space_id", "folder_name", "folder_id"])
-
-    rows = []
-    for _, row in df.iterrows():
-        folder_name = clean_text(row.get("folder"))
-        if not folder_name:
-            continue
-        rows.append(
-            {
-                "space_name": clean_text(row.get("space")),
-                "space_id": clean_text(row.get("space_id")),
-                "folder_name": folder_name,
-                "folder_id": clean_text(row.get("folder_id")),
-            }
-        )
-
-    if not rows:
-        return pd.DataFrame(columns=["space_name", "space_id", "folder_name", "folder_id"])
-
-    out = pd.DataFrame(rows).fillna("")
-    return out.drop_duplicates(subset=["space_name", "folder_name", "folder_id"]).sort_values("folder_name")
-
-
 def build_folder_label_map(folder_options: pd.DataFrame, selected_user: str) -> Dict[str, str]:
-    """Return label -> folder_id.
-
-    If duplicate folder names exist, include the space in the label.
-    """
     if folder_options.empty:
         return {}
 
@@ -583,16 +584,12 @@ def build_folder_label_map(folder_options: pd.DataFrame, selected_user: str) -> 
         else:
             label = name
 
-        if folder_id:
-            label_map[label] = folder_id
-        else:
-            label_map[label] = name
+        label_map[label] = folder_id if folder_id else name
 
     return dict(sorted(label_map.items(), key=lambda item: item[0].lower()))
 
 
 def attach_folder_reference_to_tasks(df: pd.DataFrame, folder_ref: pd.DataFrame) -> pd.DataFrame:
-    """Fill missing folder_id/space_id fields from the CSV where possible."""
     if df.empty:
         return df
 
@@ -620,8 +617,14 @@ def attach_folder_reference_to_tasks(df: pd.DataFrame, folder_ref: pd.DataFrame)
         how="left",
     )
 
-    merged["space_id"] = merged["space_id"].where(merged["space_id"].astype(str).str.len() > 0, merged["_ref_space_id"].fillna(""))
-    merged["folder_id"] = merged["folder_id"].where(merged["folder_id"].astype(str).str.len() > 0, merged["_ref_folder_id"].fillna(""))
+    merged["space_id"] = merged["space_id"].where(
+        merged["space_id"].astype(str).str.len() > 0,
+        merged["_ref_space_id"].fillna(""),
+    )
+    merged["folder_id"] = merged["folder_id"].where(
+        merged["folder_id"].astype(str).str.len() > 0,
+        merged["_ref_folder_id"].fillna(""),
+    )
 
     return merged.drop(columns=["_space_key", "_folder_key", "_ref_space_id", "_ref_folder_id"], errors="ignore")
 
@@ -682,6 +685,57 @@ def apply_main_filters(
     return filtered
 
 
+def submit_quick_task_update(
+    *,
+    task_id: str,
+    task_name: str,
+    current_status: str,
+    status_choice: str,
+    custom_status: str,
+    priority_choice: str,
+    change_due: bool,
+    new_due,
+    comment: str,
+    notify_all: bool,
+) -> None:
+    changes = {}
+
+    final_status = custom_status.strip() or status_choice
+    if final_status and final_status != "Do not change" and final_status != current_status:
+        changes["status"] = final_status
+
+    if priority_choice != "Do not change":
+        priority_value = PRIORITY_VALUES.get(priority_choice)
+        if priority_value is not None:
+            changes["priority"] = priority_value
+
+    if change_due:
+        changes["due_date_ms"] = date_to_clickup_ms(new_due)
+
+    if not changes and not comment.strip():
+        st.info("No changes were submitted.")
+        return
+
+    client = get_client()
+
+    try:
+        if changes:
+            client.update_task(task_id, **changes)
+
+        if comment.strip():
+            client.add_task_comment(
+                task_id,
+                comment.strip(),
+                notify_all=bool(notify_all),
+            )
+
+        st.success(f"Updated: {task_name}")
+        st.cache_data.clear()
+
+    except Exception as exc:
+        st.error(f"Update failed: {exc}")
+
+
 # =========================================================
 # Renderers
 # =========================================================
@@ -691,7 +745,7 @@ def render_header() -> None:
         <div class="brand-shell">
             <div class="brand-title">Evolved Commerce<br>ClickUp Command Center</div>
             <div class="brand-subtitle">
-                Cleaner task visibility • Client folders • Due date focus • Status updates • Comments • Task creation • AI daily planning
+                Cleaner task visibility • Client folders • Inline updates • Comments • Task creation • AI daily planning
             </div>
         </div>
         """,
@@ -699,8 +753,8 @@ def render_header() -> None:
     )
 
     render_info_banner(
-        "Folder mapping upgraded",
-        "The Client / Folder picker now uses the folder reference CSV first, so account managers show the folders from their actual ClickUp space.",
+        "Inline task actions added",
+        "Open a task card, expand Quick actions, and update status, priority, due date, or add a comment without hunting for the task again.",
     )
 
 
@@ -716,27 +770,22 @@ def render_user_panel(
         unsafe_allow_html=True,
     )
 
-    with st.container():
-        st.markdown('<div class="control-panel">', unsafe_allow_html=True)
+    user_options = ordered_user_options(clickup_users)
 
-        user_options = ordered_user_options(clickup_users)
+    selected_user = st.selectbox(
+        "Person / Space",
+        user_options,
+        index=0,
+        help="Choose whose assigned tasks should be shown.",
+    )
 
-        selected_user = st.selectbox(
-            "Person / Space",
-            user_options,
-            index=0,
-            help="Choose whose assigned tasks should be shown.",
-        )
+    mapped_space_name = get_mapped_space_name(selected_user, folder_ref)
 
-        mapped_space_name = get_mapped_space_name(selected_user, folder_ref)
-
-        if selected_user != "All Users":
-            if mapped_space_name:
-                st.caption(f"Mapped ClickUp space: {mapped_space_name}")
-            else:
-                st.caption("No specific ClickUp space mapping found.")
-
-        st.markdown("</div>", unsafe_allow_html=True)
+    if selected_user != "All Users":
+        if mapped_space_name:
+            st.caption(f"Mapped ClickUp space: {mapped_space_name}")
+        else:
+            st.caption("No specific ClickUp space mapping found.")
 
     if selected_user == "All Users":
         selected_assignee_ids = ""
@@ -769,53 +818,51 @@ def render_filter_panel(
     folder_options = get_folder_options_for_user(selected_user, df, folder_ref)
     folder_label_map = build_folder_label_map(folder_options, selected_user)
 
-    with st.container():
-        st.markdown('<div class="control-panel">', unsafe_allow_html=True)
+    top1, top2 = st.columns([1.2, 1.8])
 
-        top1, top2 = st.columns([1.2, 1.8])
+    with top1:
+        selected_folder_labels = st.multiselect(
+            "Client / Folder",
+            list(folder_label_map.keys()),
+            help="Uses folder IDs from clickup_folder_ids.csv where available.",
+        )
 
-        with top1:
-            selected_folder_labels = st.multiselect(
-                "Client / Folder",
-                list(folder_label_map.keys()),
-                help="Uses folder IDs from clickup_folder_ids.csv where available.",
-            )
+    with top2:
+        search = st.text_input(
+            "Search",
+            placeholder="task, client, tag, assignee, description...",
+        )
 
-        with top2:
-            search = st.text_input(
-                "Search",
-                placeholder="task, client, tag, assignee, description...",
-            )
+    bottom1, bottom2, bottom3, bottom4 = st.columns(4)
 
-        bottom1, bottom2, bottom3, bottom4 = st.columns(4)
+    with bottom1:
+        list_options = get_unique_values(df, "list")
+        selected_lists = st.multiselect(
+            "Task List",
+            list_options,
+            help="Lists are the task workflows inside each client folder.",
+        )
 
-        with bottom1:
-            list_options = get_unique_values(df, "list")
-            selected_lists = st.multiselect(
-                "Task List",
-                list_options,
-                help="Lists are the task workflows inside each client folder.",
-            )
+    with bottom2:
+        status_options = get_unique_values(df, "status")
+        selected_statuses = st.multiselect("Status", status_options)
 
-        with bottom2:
-            status_options = get_unique_values(df, "status")
-            selected_statuses = st.multiselect("Status", status_options)
+    with bottom3:
+        priority_options = ["Urgent", "High", "Normal", "Low", "None"]
+        selected_priorities = st.multiselect("Priority", priority_options)
 
-        with bottom3:
-            priority_options = ["Urgent", "High", "Normal", "Low", "None"]
-            selected_priorities = st.multiselect("Priority", priority_options)
+    with bottom4:
+        assignee_values = sorted(
+            {
+                name.strip()
+                for names in df.get("assignees", pd.Series(dtype=str)).dropna().tolist()
+                for name in str(names).split(",")
+                if name.strip()
+            }
+        )
+        selected_assignees = st.multiselect("Assignee", assignee_values)
 
-        with bottom4:
-            assignee_values = sorted(
-                {
-                    name.strip()
-                    for names in df.get("assignees", pd.Series(dtype=str)).dropna().tolist()
-                    for name in str(names).split(",")
-                    if name.strip()
-                }
-            )
-            selected_assignees = st.multiselect("Assignee", assignee_values)
-
+    with st.expander("More filters", expanded=False):
         tag_values = sorted(
             {
                 tag.strip()
@@ -824,18 +871,14 @@ def render_filter_panel(
                 if tag.strip()
             }
         )
-
-        with st.expander("More filters", expanded=False):
-            selected_tags = st.multiselect("Tags", tag_values)
-            card_limit = st.slider(
-                "Task cards to show",
-                min_value=5,
-                max_value=60,
-                value=18,
-                step=5,
-            )
-
-        st.markdown("</div>", unsafe_allow_html=True)
+        selected_tags = st.multiselect("Tags", tag_values)
+        card_limit = st.slider(
+            "Task cards to show",
+            min_value=5,
+            max_value=60,
+            value=18,
+            step=5,
+        )
 
     selected_folder_ids = []
     selected_folder_names = []
@@ -938,6 +981,114 @@ def render_task_table(df: pd.DataFrame, title: str):
     )
 
 
+def render_inline_task_actions(row: pd.Series, key_prefix: str = "inline_task_action"):
+    task_id = str(row.get("id") or "")
+    task_name = str(row.get("name") or "Untitled Task")
+    current_status = str(row.get("status") or "")
+    current_due = row.get("due")
+    current_priority = str(row.get("priority") or "None")
+
+    if not task_id:
+        st.warning("This task is missing a ClickUp task ID, so it cannot be updated here.")
+        return
+
+    key = f"{key_prefix}_{safe_key(task_id)}"
+
+    with st.expander("Quick actions", expanded=False):
+        st.markdown(
+            '<div class="inline-action-note">Update this task directly from the card. Nothing writes to ClickUp until you submit.</div>',
+            unsafe_allow_html=True,
+        )
+
+        with st.form(f"{key}_form"):
+            qa1, qa2, qa3 = st.columns([1, 1, 1.4])
+
+            with qa1:
+                status_options = [
+                    "Do not change",
+                    current_status,
+                    "to do",
+                    "in progress",
+                    "waiting",
+                    "ready for review",
+                    "complete",
+                ]
+
+                status_options = list(dict.fromkeys([x for x in status_options if x]))
+
+                status_choice = st.selectbox(
+                    "Status",
+                    options=status_options,
+                    index=0,
+                    key=f"{key}_status",
+                    help="Status must match a valid status in this task's ClickUp list.",
+                )
+
+                custom_status = st.text_input(
+                    "Custom status",
+                    value="",
+                    placeholder="Optional exact ClickUp status",
+                    key=f"{key}_custom_status",
+                )
+
+            with qa2:
+                priority_choice = st.selectbox(
+                    "Priority",
+                    options=["Do not change", "Urgent", "High", "Normal", "Low"],
+                    index=0,
+                    key=f"{key}_priority",
+                )
+
+                st.caption(f"Current priority: {current_priority}")
+
+                change_due = st.checkbox(
+                    "Change due date",
+                    value=False,
+                    key=f"{key}_change_due",
+                )
+
+                new_due = (
+                    st.date_input(
+                        "New due date",
+                        value=current_due or date.today(),
+                        key=f"{key}_due",
+                    )
+                    if change_due
+                    else None
+                )
+
+            with qa3:
+                comment = st.text_area(
+                    "Add comment",
+                    value="",
+                    placeholder="Optional comment...",
+                    height=120,
+                    key=f"{key}_comment",
+                )
+
+                notify_all = st.checkbox(
+                    "Notify watchers",
+                    value=False,
+                    key=f"{key}_notify",
+                )
+
+            submitted = st.form_submit_button("Submit update", type="primary")
+
+        if submitted:
+            submit_quick_task_update(
+                task_id=task_id,
+                task_name=task_name,
+                current_status=current_status,
+                status_choice=status_choice,
+                custom_status=custom_status,
+                priority_choice=priority_choice,
+                change_due=change_due,
+                new_due=new_due,
+                comment=comment,
+                notify_all=notify_all,
+            )
+
+
 def render_task_cards(df: pd.DataFrame, limit: int = 12):
     if df.empty:
         st.info("No matching tasks.")
@@ -984,6 +1135,17 @@ def render_task_cards(df: pd.DataFrame, limit: int = 12):
 
         if assignees:
             st.caption(f"Assignees: {assignees}")
+
+        action_col1, action_col2 = st.columns([1, 4])
+
+        with action_col1:
+            if task_url:
+                st.link_button("Open in ClickUp", task_url, use_container_width=True)
+
+        with action_col2:
+            st.caption("Expand Quick actions to update status, priority, due date, or add a comment.")
+
+        render_inline_task_actions(row)
 
         if row.get("description"):
             with st.expander("Description preview"):
@@ -1049,7 +1211,7 @@ def render_client_overview(filtered: pd.DataFrame, card_limit: int):
                 unsafe_allow_html=True,
             )
 
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    render_divider()
 
     inspect_options = [
         f"{row['Client']} ({row['Folder ID']})" if row.get("Folder ID") else row["Client"]
@@ -1114,6 +1276,9 @@ def render_folder_ids_admin(folder_ref: pd.DataFrame, folder_options: pd.DataFra
         st.warning("No clickup_folder_ids.csv file found in the repo root, data folder, or assets folder.")
         return
 
+    source_path = folder_ref.attrs.get("source_path", "Not found")
+    st.caption(f"Folder reference source: {source_path}")
+
     c1, c2, c3 = st.columns(3)
     with c1:
         render_metric_card("Folder Reference Rows", str(len(folder_ref)), tone="brand")
@@ -1138,9 +1303,9 @@ def render_folder_ids_admin(folder_ref: pd.DataFrame, folder_options: pd.DataFra
 
 
 def render_update_tab(df: pd.DataFrame):
-    st.markdown('<div class="section-title">Update a ClickUp Task</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Advanced Task Update</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-note">Change status, priority, due date, description, or leave a comment. Nothing writes to ClickUp until you confirm.</div>',
+        '<div class="section-note">This is a fallback editor. Most updates should now happen directly from task cards.</div>',
         unsafe_allow_html=True,
     )
 
@@ -1247,7 +1412,7 @@ def render_update_tab(df: pd.DataFrame):
     pending = st.session_state.get("pending_update")
 
     if pending:
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_divider()
         st.markdown("### Review before submitting")
         st.write(f"Task: **{pending['task_name']}**")
         st.json(
@@ -1393,7 +1558,7 @@ def render_create_task_tab(
     pending = st.session_state.get("pending_create")
 
     if pending:
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_divider()
         st.markdown("### Review before creating")
         st.json(
             {
@@ -1477,7 +1642,7 @@ with st.sidebar:
 - Pulls ClickUp tasks by person/space
 - Uses your folder ID CSV for client folders
 - Shows due, overdue, and priority work
-- Lets you update task status, priority, due date, and comments
+- Lets you update task status, priority, due date, and comments directly from task cards
 - Lets you create new ClickUp tasks
 - Can generate an AI daily work brief
 """
@@ -1578,10 +1743,10 @@ def main():
         )
     )
 
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    render_divider()
     render_summary_metrics(filtered)
 
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    render_divider()
 
     tabs = st.tabs(
         [
@@ -1592,7 +1757,7 @@ def main():
             "Overdue",
             "Team Overview",
             "All Tasks",
-            "Update Task",
+            "Advanced Update",
             "Create Task",
             "AI Brief",
             "Admin: Folder IDs",
@@ -1625,19 +1790,19 @@ def main():
     with tabs[2]:
         today_df = filtered[filtered["is_due_today"]] if not filtered.empty else filtered
         render_task_cards(today_df, limit=card_limit)
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_divider()
         render_task_table(today_df, "Today Table")
 
     with tabs[3]:
         week_df = filtered[filtered["is_due_this_week"]] if not filtered.empty else filtered
         render_task_cards(week_df, limit=card_limit)
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_divider()
         render_task_table(week_df, "This Week Table")
 
     with tabs[4]:
         overdue_df = filtered[filtered["is_overdue"]] if not filtered.empty else filtered
         render_task_cards(overdue_df, limit=card_limit)
-        st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+        render_divider()
         render_task_table(overdue_df, "Overdue Table")
 
     with tabs[5]:
@@ -1666,7 +1831,7 @@ def main():
             selected_user=selected_user,
         )
 
-    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    render_divider()
 
     footer_col1, footer_col2, footer_col3 = st.columns([3, 2, 3])
     with footer_col2:
