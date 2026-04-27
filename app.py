@@ -68,6 +68,74 @@ USER_DISPLAY_ORDER = [
 st.markdown(
     """
     <style>
+
+        html, body, [data-testid="stAppViewContainer"], .stApp {
+            background: #FFFFFF !important;
+            color: #111827 !important;
+        }
+        
+        [data-testid="stHeader"] {
+            background: #FFFFFF !important;
+        }
+        
+        [data-testid="stToolbar"] {
+            background: #FFFFFF !important;
+        }
+        
+        [data-testid="stSidebar"] {
+            background: #F5F5F5 !important;
+            color: #111827 !important;
+        }
+        
+        [data-testid="stSidebar"] * {
+            color: #111827 !important;
+        }
+        
+        [data-testid="stSidebar"] button {
+            color: #111827 !important;
+        }
+        
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+            color: #111827 !important;
+        }
+        
+        .block-container {
+            background: #FFFFFF !important;
+        }
+        
+        div[data-baseweb="select"] > div {
+            background-color: #FFFFFF !important;
+            color: #111827 !important;
+            border-color: #D1D5DB !important;
+        }
+        
+        div[data-baseweb="input"] input {
+            background-color: #FFFFFF !important;
+            color: #111827 !important;
+        }
+        
+        textarea {
+            background-color: #FFFFFF !important;
+            color: #111827 !important;
+        }
+        
+        [data-testid="stTextInput"] input {
+            background-color: #FFFFFF !important;
+            color: #111827 !important;
+        }
+        
+        [data-testid="stMultiSelect"] div {
+            color: #111827 !important;
+        }
+        
+        [data-testid="stTabs"] {
+            background: #FFFFFF !important;
+        }
+        
+        [data-testid="stDataFrame"] {
+            background: #FFFFFF !important;
+        }
+    
         .main > div { padding-top: 1rem; }
         .block-container {
             padding-top: 1rem;
